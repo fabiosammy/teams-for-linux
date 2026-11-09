@@ -4,6 +4,7 @@ const SenderProfileMap = require("./senderProfileMap");
 const { reloadIfSignedOut } = require("./signOutReload");
 const { isHttpsUrl } = require("../profilesManager");
 const { keepMsalEncryptionCookiePersistent } = require("./msalCookiePersistence");
+const webauthnBackend = require("../webauthn/backendStatus");
 
 const LEGACY_PARTITION = "persist:teams-4-linux";
 
@@ -525,6 +526,8 @@ class ProfileViewManager {
         contextIsolation: false,
         nodeIntegration: false,
         sandbox: false,
+        // Same WebAuthn backend flag as the root window (backendStatus.js).
+        additionalArguments: webauthnBackend.rendererArguments(this.#config),
       },
     });
 
