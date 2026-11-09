@@ -803,6 +803,28 @@ A floating sticker panel that lists image files from a local folder and pastes t
 | `msTeamsProtocols` | `object` | `{ v1: "^msteams:/(?:meet/\|l/(?:app\|call\|channel\|chat\|entity\|file\|meet(?:ing\|up-join)\|message\|task\|team)/)", v2: "^msteams://teams\\.(?:microsoft\\.com\|live\\.com\|cloud\\.microsoft)/(?:meet/\|l/(?:app\|call\|channel\|chat\|entity\|file\|meet(?:ing\|up-join)\|message\|task\|team)/)" }` | Regular expressions for Microsoft Teams protocol links (v1 = legacy `msteams:` scheme, v2 = host-based `msteams://` scheme) |
 | `urlHandling.openMeetupJoinInApp` | `boolean` | `true` | Open `urlHandling.meetupJoinRegEx` URLs in the app instead of default browser |
 | `onNewWindowOpenMeetupJoinUrlInApp` | `boolean` | `true` | Deprecated, use `urlHandling.openMeetupJoinInApp` |
+| `urlHandling.inAppHosts` | `array` | `[]` | Hostnames whose popups open as in-app windows sharing the session instead of in the default browser: popups to these hosts, and `about:blank` popups their pages open. For another web app loaded through `app.url`, see [Outlook on the web](#outlook-on-the-web) |
+
+#### Outlook on the web
+
+The app can run Outlook on the web as a separate instance, with its own data directory, window class and FIDO2 sign-in:
+
+```json
+{
+  "app": {
+    "title": "Outlook",
+    "url": "https://outlook.office.com/mail/",
+    "partition": "persist:outlook"
+  },
+  "window": { "class": "outlook-for-linux" },
+  "auth": { "webauthn": { "enabled": true } },
+  "urlHandling": {
+    "inAppHosts": ["outlook.office.com", "outlook.cloud.microsoft"]
+  }
+}
+```
+
+Start it with `--user-data-dir=$HOME/.config/outlook-for-linux` so it keeps its own `config.json` beside your Teams one. Without `urlHandling.inAppHosts`, Outlook's pop-outs (pop-out compose, open in new window) are denied or sent to the default browser, which has no session.
 
 ### Keyboard Shortcuts
 

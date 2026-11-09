@@ -1352,9 +1352,10 @@ module.exports = {
           defaultHandler: "",
           meetupJoinRegEx: "^https://teams\\.(?:microsoft\\.com|live\\.com|cloud\\.microsoft)/(v2/\\?meetingjoin=|meet/|l/(?:app|call|channel|chat|entity|file|meet(?:ing|up-join)|message|task|team)/)",
           openMeetupJoinInApp: true,
+          inAppHosts: [],
         },
         describe:
-          "How the app decides which URLs it opens itself and which it hands to the desktop. Replaces the deprecated defaultURLHandler, meetupJoinRegEx and onNewWindowOpenMeetupJoinUrlInApp options.",
+          "How the app decides which URLs it opens itself and which it hands to the desktop. urlHandling.inAppHosts keeps popups from other web apps loaded through app.url (e.g. Outlook pop-outs) in the app. Replaces the deprecated defaultURLHandler, meetupJoinRegEx and onNewWindowOpenMeetupJoinUrlInApp options.",
         type: "object",
         fields: {
           "defaultHandler": {
@@ -1368,6 +1369,11 @@ module.exports = {
           "openMeetupJoinInApp": {
             type: "boolean",
             describe: "Open meetupJoinRegEx URLs in the app instead of the default browser",
+          },
+          "inAppHosts": {
+            type: "array",
+            describe:
+              "Hostnames whose popups open as in-app windows sharing the session, instead of in the default browser: popups to these hosts and about:blank popups opened by their pages (e.g. Outlook's pop-out compose). For loading another web app through app.url, e.g. ['outlook.office.com', 'outlook.cloud.microsoft']. Exact bare hostnames only; empty by default.",
           },
         },
         applyMode: "restart",
