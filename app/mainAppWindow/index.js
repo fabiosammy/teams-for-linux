@@ -27,6 +27,7 @@ const { resolveLaunchUrl } = require("./protocolLink");
 const os = require("node:os");
 const path = require("node:path");
 const { installProfileWindowOpenHandler } = require("./profileWindowOpenPolicy");
+const { buildInAppHosts, isInAppPopup } = require("./inAppWindowPolicy");
 const { reloadIfSignedOut } = require("./signOutReload");
 const { keepMsalEncryptionCookiePersistent } = require("./msalCookiePersistence");
 const {
@@ -49,6 +50,9 @@ let profilesManagerRef = null;
 // Teams sometimes navigates to about:blank during SSO/auth redirects, and we need to
 // intercept these and handle them in a hidden window to complete the auth process.
 let aboutBlankRequestCount = 0;
+// Hosts whose popups open as in-app windows (urlHandling.inAppHosts), built
+// once at startup. Empty by default, so Teams popups keep their handling.
+let inAppHosts = new Set();
 let config;
 let window = null;
 let appConfig = null;
@@ -653,6 +657,7 @@ async function triggerAuthRecovery() {
 exports.onAppReady = async function onAppReady(configGroup, customBackground, sharingService, profilesManager = null) {
   appConfig = configGroup;
   config = configGroup.startupConfig;
+  inAppHosts = buildInAppHosts(config.urlHandling?.inAppHosts);
   customBackgroundService = customBackground;
   screenSharingService = sharingService;
   profilesManagerRef = profilesManager;
@@ -1314,6 +1319,12 @@ function onNewWindow(details) {
     return documentPictureInPictureResponse();
   }
 
+  // Must also precede the about:blank deny below: an Outlook "pop out"
+  // compose opens about:blank and renders into it through window.opener.
+  if (isInAppPopup(inAppHosts, details.url, window.webContents.mainFrame.origin)) {
+    return inAppPopupResponse();
+  }
+
   // Breadcrumb for diagnosing which shape of popup the "sign in again"
   // banner opens (about:blank-then-navigate vs a direct login URL) — the two
   // take different paths below and only the direct form can be intercepted
@@ -1445,6 +1456,7 @@ function addEventHandlers() {
 
   window.on("page-title-updated", onPageTitleUpdated);
   window.webContents.setWindowOpenHandler(onNewWindow);
+  window.webContents.on("did-create-window", onDidCreateWindow);
   window.webContents.session.webRequest.onBeforeRequest(
     { urls: ["https://*/*"] },
     onBeforeRequestHandler
@@ -1518,6 +1530,53 @@ function onBeforeInput(event, input) {
     event.preventDefault();
     history.goForward();
   }
+}
+
+// In-app popups (urlHandling.inAppHosts, see inAppWindowPolicy.js) start
+// hidden. At open time Electron does not say which frame called window.open,
+// and the referrer is empty for an about:blank popup from an https page, so
+// the window's own page vouches for it provisionally; the calling frame is
+// confirmed in adoptInAppChildWindow before the window is shown.
+function inAppPopupResponse() {
+  return { action: "allow", overrideBrowserWindowOptions: { show: false } };
+}
+
+// Root-window popups the in-app policy allowed. Other allowed popups
+// (Ctrl+click SSO, Picture-in-Picture) keep their own handling.
+function onDidCreateWindow(child, details) {
+  if (!isInAppPopup(inAppHosts, details.url, window.webContents.mainFrame.origin)) return;
+  adoptInAppChildWindow(child, details);
+}
+
+// `webContents.opener` names the frame that called window.open. An
+// about:blank popup from a frame outside the in-app hosts, such as an iframe
+// embedded in the page, is closed before it is ever shown. Accepted children
+// share the opener's session but get no window-open handler of their own
+// (handlers are per-webContents), so each gets the same policy: a link
+// inside a pop-out opens in-app for an in-app host and in the browser
+// otherwise, never in a stray Electron window.
+function adoptInAppChildWindow(child, details) {
+  const openerOrigin = child.webContents.opener?.origin ?? "";
+  if (!isInAppPopup(inAppHosts, details.url, openerOrigin)) {
+    console.warn("[IN_APP_WINDOWS] Closed a popup opened by a frame outside urlHandling.inAppHosts");
+    child.destroy();
+    return;
+  }
+
+  child.removeMenu();
+  child.webContents.setWindowOpenHandler((childDetails) => {
+    // An about:blank pop-out keeps its opener's origin, so this is the
+    // in-app host for Outlook's compose window too.
+    if (isInAppPopup(inAppHosts, childDetails.url, child.webContents.mainFrame.origin)) {
+      return inAppPopupResponse();
+    }
+    if (/^https?:\/\//i.test(childDetails.url)) {
+      openInBrowser(childDetails);
+    }
+    return { action: "deny" };
+  });
+  child.webContents.on("did-create-window", adoptInAppChildWindow);
+  child.show();
 }
 
 function secureOpenLink(details) {

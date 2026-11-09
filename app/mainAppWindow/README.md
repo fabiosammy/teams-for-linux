@@ -9,6 +9,7 @@ Manages the primary BrowserWindow that hosts the Teams web interface.
 - **[deepLinkRouter.js](deepLinkRouter.js)**: In-page routing for Teams deep links
 - **[msalCookiePersistence.js](msalCookiePersistence.js)**: Promotes the `msal.cache.encryption` session cookie to a persistent one so sign-in survives restarts. Installed once per session on the root window and on every multi-account profile view (#3183)
 - **[protocolLink.js](protocolLink.js)**: Protocol schemes the app registers, `web+msteams:` normalisation and resolving launch arguments to the URL to open
+- **[inAppWindowPolicy.js](inAppWindowPolicy.js)**: Which popups `urlHandling.inAppHosts` keeps as in-app windows, for other web apps loaded through `app.url` (Outlook pop-outs)
 
 ## Responsibilities
 
