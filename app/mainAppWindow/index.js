@@ -1321,6 +1321,9 @@ function onNewWindow(details) {
 
   // Must also precede the about:blank deny below: an Outlook "pop out"
   // compose opens about:blank and renders into it through window.opener.
+  // Returning here also keeps listed pop-outs from bumping
+  // aboutBlankRequestCount, which drives the silent sign-in recovery in
+  // onBeforeRequestHandler: a counted pop-out would divert the next request.
   if (isInAppPopup(inAppHosts, details.url, window.webContents.mainFrame.origin)) {
     return inAppPopupResponse();
   }
